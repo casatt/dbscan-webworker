@@ -1,0 +1,224 @@
+<!DOCTYPE HTML>
+    
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"> 
+
+	<head>
+	<title>DDM - Uebung 5 - DBSCAN</title>
+
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+	
+	<link rel="stylesheet" href="css/default.css" type="text/css">
+	<link rel="stylesheet" href="http://code.jquery.com/ui/1.8.20/themes/base/jquery-ui.css" type="text/css" media="all" />
+	
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.9/jquery-ui.min.js" type="text/javascript"></script>
+	<script src="js/lib/underscore-min.js"></script>
+	<script src="js/lib/jquery.transform2d.js"></script>
+	<script src="js/lib/jquery.transformable-v.3.js"></script>
+	<script src="js/lib/jquery.mousewheel.min.js"></script>
+	
+	
+	<script type="text/javascript"> 
+	
+	var ctx,
+		img,
+		imgWidth = 7200,
+		imgHeight = 3600,
+		originalPixels = [],
+		currentPixels = [],
+		newImageData,
+		pixelWorker,
+		dbscanWorker,
+		canvasScale = 1;
+		
+		$( document ).ready( function() {
+		
+			$( window ).resize( setLayout );
+			setLayout();
+			
+			$("#canvas").draggable();
+			$( window ).on("mousewheel", handleMousewheel);
+			
+			$( "#analyzePictureBtn" ).on("click", function(){	
+			
+				pixelWorker = new Worker("js/pixelAnalyzer.worker.js");
+
+				pixelWorker .onmessage = function(e){
+					console.log("PIXELANALYSIS COMPLETE");
+					originalPixels = e.data;
+					reducePixels();
+				};
+						
+				pixelWorker .postMessage( {
+					data : ctx.getImageData(0, 0, imgWidth, imgHeight),
+					width : imgWidth,
+					height: imgHeight
+				});
+			
+			$( "#analyzePictureBtn" ).attr("disabled","true");
+			$( "#maxIntensityBtn").removeAttr("disabled");
+			$( "#startDBScanBtn").removeAttr("disabled");
+			
+			});
+			
+			$( "#maxIntensityBtn" ).on("click", function(){	
+				reducePixels();
+			});
+			
+			$( "#startDBScanBtn" ).on("click", function(){
+			
+					
+				if( $( "#startDBScanBtn").val() === "Start DBScan"){
+
+					$( "#startDBScanBtn").val("Stop DBScan"); 
+					dbscanWorker = new Worker("js/dbscan.worker.js");
+					newImageData = ctx.createImageData(imgWidth,imgHeight);
+					$("#forceDrawingBtn").removeAttr("disabled");
+					
+					dbscanWorker.onmessage = function( e ){
+					
+						if(e.data.status === "COMPLETE"){
+							alert( "DBSCAN COMPLETE");
+							drawResult();
+							$( "#startDBScanBtn").val("Start DBScan"); 
+						}
+						else{
+						//	console.log( "POINT ADDED x : ", e.data.x, ", y : ", e.data.y, ", color : ", e.data.color );
+							setPixel( 
+								newImageData,
+								e.data.x,
+								e.data.y,
+								e.data.color >> 16 & 0xff,
+								e.data.color>> 8 & 0xff,
+								e.data.color & 0xff,
+								255
+							);
+						}
+					};
+				
+					dbscanWorker.postMessage( {
+						data : currentPixels,
+						eps : parseFloat( $( "#epsValue" ).val() ),
+						minPts : parseInt( $( "#minPtsValue" ).val() ),
+						distFuncName : $( "#distFuncSelect" ).val() }
+					);
+				
+				}
+				else{
+					$( "#startDBScanBtn").val("Start DBScan"); 
+					dbscanWorker.terminate();
+				}
+				
+			});
+			
+			$( "#forceDrawingBtn" ).on("click", drawResult);
+			
+			
+			//Loading the source-image
+			img = new Image();
+			img.onload = function() {
+				ctx = $( "canvas" )[0].getContext( "2d" );  
+				ctx.drawImage(img,0,0);  
+				$( "#analyzePictureBtn" ).removeAttr("disabled");
+			}
+			img.src= "data/nlights.png";
+	
+		});
+
+				
+		function setLayout() {
+			var ratio = $( "#canvas" ).width() / $( "#canvas" ).height();
+			$( "#canvas" ).css( "width" , $( window ).width() ).css( "height" , $( window ).width() / ratio | 0 );
+		}
+		
+		
+		function redrawCanvasFromPixels(pixels, color){		
+			var imageData = ctx.createImageData(imgWidth, imgHeight),
+				   i = 0,
+				   l = pixels.length;		
+			
+			if(!color){
+				for( ; i < l; i++ ){
+					setPixel( imageData, pixels[i]["x"], pixels[i]["y"], pixels[i]["val"], pixels[i]["val"] , pixels[i]["val"] , 255 );
+				}
+			}
+			else{
+				for( ; i < l; i++ ){
+					setPixel( imageData, pixels[i]["x"], pixels[i]["y"], color.r, color.g, color.b, 255 );
+				}
+			}
+			
+			ctx.putImageData( imageData, 0, 0 );
+		  
+		}
+		
+		
+	function setPixel(imageData, x, y, r, g, b, a) {
+		index = (x + y * imageData.width) * 4;
+		imageData.data[index+0] = r;
+		imageData.data[index+1] = g;
+		imageData.data[index+2] = b;
+		imageData.data[index+3] = a;
+	}
+	
+	function drawResult(){
+		ctx.putImageData( newImageData, 0, 0 );
+	}
+	
+	function reducePixels(){
+		var min = parseInt( $( "#minIntesity" ).val()),
+			max = parseInt( $( "#maxIntesity" ).val());
+			
+		currentPixels = _.reject( originalPixels, function(pixel){ 
+			return pixel.val < min || pixel.val > max }
+		) ;
+		
+		redrawCanvasFromPixels( currentPixels, { r: 255, g: 255, b: 255} );
+	}
+	
+	function handleMousewheel(event, delta, deltaX, deltaY){
+		event.preventDefault();
+		var step = (delta < 0) ? -0.3 : 0.3;
+		canvasScale += step;
+		if(canvasScale <= 0.3) canvasScale = 0.3;
+		$( "#canvas" ).css( "transform", "scale(" + canvasScale+ ")");
+	}
+	</script>
+	
+	</head>
+
+	<body>
+		
+	<div id="menu">
+	
+		<input id="analyzePictureBtn" type="button" value="Analyze Picture" disabled/>
+		
+		Min-Intensity: <input id="minIntesity" type="text" value=90 />
+		
+		Max-Intensity: <input id="maxIntesity" type="text" value=100 />
+		<input id="maxIntensityBtn" type="button" value="Update" disabled />
+		
+
+		<div style="float:right">
+			
+			Distance-Function: 
+			<select id="distFuncSelect">
+				<option value="manhattan">Manhattan</option>
+				<option value="euclid">Euklid</option>
+			</select>
+			eps (ɛ): <input id="epsValue" type="text" value=2 />
+			MinPts: <input id="minPtsValue" type="text" value=10 />
+			<input id="startDBScanBtn" type="button" value="Start DBScan" disabled />
+			<input id="forceDrawingBtn" type="button" value="Force Drawing" disabled />
+		</div>
+		
+		
+		
+		
+	</div>
+	
+	<canvas id="canvas" width=7200 height=3600 />
+
+	</body>
+	
+</html>

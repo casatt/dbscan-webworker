@@ -1,0 +1,49 @@
+<!DOCTYPE HTML>
+    
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"> 
+
+	<head>
+
+	
+	<script type="text/javascript"> 
+	
+				
+				var data = [];
+				
+				for( var i = 0; i < 2000; i++){
+					data.push( { x : parseInt( Math.random() * 7200 ), y: parseInt( Math.random() * 3600 ) } );
+				}
+
+
+					var dbscanWorker = new Worker("js/dbscan.worker.js");
+				
+					dbscanWorker.onmessage = function( e ){
+					
+						if(e.data.status){
+							console.log( "DBSCAN COMPLETE", e.data.status );
+						}
+						else{
+							console.log( "POINT ADDED x : ", e.data.x, ", y : ", e.data.y, ", color : ", e.data.color );
+						}
+					};
+				
+					dbscanWorker.postMessage( {
+						data : data,
+						eps : 2,
+						minPts : 3
+					});
+
+
+
+
+	</script>
+	
+	</head>
+
+	<body>
+		
+
+
+	</body>
+	
+</html>

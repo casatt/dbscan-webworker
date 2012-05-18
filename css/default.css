@@ -1,0 +1,39 @@
+*{
+	font-family : "Verdana";
+	font-size : 10pt;
+	color : #000000;
+	font-style : normal;
+}
+		
+body{
+	margin: 0;
+	padding: 0;
+	background-color: #000000;
+	overflow: hidden;
+}
+		
+#menu{
+	height: 30px;
+	display: block;
+	background-color: #c0c0c0;
+	background-image: linear-gradient(bottom, rgb(107,104,107) 0%, rgb(161,156,161) 72%);
+	background-image: -o-linear-gradient(bottom, rgb(107,104,107) 0%, rgb(161,156,161) 72%);
+	background-image: -moz-linear-gradient(bottom, rgb(107,104,107) 0%, rgb(161,156,161) 72%);
+	background-image: -webkit-linear-gradient(bottom, rgb(107,104,107) 0%, rgb(161,156,161) 72%);
+	background-image: -ms-linear-gradient(bottom, rgb(107,104,107) 0%, rgb(161,156,161) 72%);
+	border-top: 1px solid #999999; 
+	border-bottom: 1px solid #444444;
+	padding: 3px 10px 3px 10px;
+	z-index: 1000;
+	position:relative;
+}
+
+
+#menu input[ type="text" ]{
+	width:40px;
+	text-align:center;
+}	
+
+canvas{
+	cursor : move; 
+}
